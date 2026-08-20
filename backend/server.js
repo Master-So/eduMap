@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import connectDB from './config/db.js';
 import testRoutes from './routes/testRoutes.js';
 import submissionRoutes from './routes/submissionRoutes.js';
+import authRoutes from './routes/authRoutes.js';
 
 // Load environment variables
 dotenv.config();
@@ -24,6 +25,7 @@ app.get('/', (req, res) => {
 });
 app.use('/api/tests', testRoutes);
 app.use('/api/submissions', submissionRoutes);
+app.use('/api/auth', authRoutes);
 
 // Define the Port
 const PORT = process.env.PORT || 5000;
