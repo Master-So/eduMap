@@ -107,7 +107,12 @@ export const studentApi = {
       body: JSON.stringify({ answers }),
     });
   },
+
+  getSubmissions: async () => {
+    return request('/api/students/submissions');
+  },
 };
+
 
 // Local Submission & Dynamic Analytics Calculation
 export const submissionStorage = {
