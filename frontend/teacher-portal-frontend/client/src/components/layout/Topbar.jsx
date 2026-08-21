@@ -1,0 +1,4 @@
+import { Menu, Bell, CircleHelp } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext.jsx';
+import { initials, displayValue } from '../../utils/safeData.jsx';
+export default function Topbar({ onMenu }) { const { teacher } = useAuth(); const name = displayValue(teacher?.name, 'Teacher'); return <header className="topbar"><button className="mobile-menu" onClick={onMenu} aria-label="Open menu"><Menu size={20} /></button><div className="topbar-context"><span className="topbar-kicker">Teacher workspace</span><span className="topbar-status"><span className="status-dot" /> Ready for your next lesson</span></div><div className="topbar-actions"><button className="icon-button" aria-label="Help"><CircleHelp size={18} /></button><button className="icon-button" aria-label="Notifications"><Bell size={18} /></button><div className="profile-chip"><span className="avatar">{initials(name)}</span><span className="profile-name">{name}</span></div></div></header>; }

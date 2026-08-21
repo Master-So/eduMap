@@ -1,0 +1,17 @@
+import express from 'express';
+import { requireAuth, requireTeacher } from '../middleware/authMiddleware.js';
+import { getTeacherProfile, getConnectionKey, getConnectedStudents, getTeacherQuizzes, getTeacherAnalytics, analyzeTeacherAnalytics, getTeacherReports, getTeacherReport, publishQuiz } from '../controllers/teacherController.js';
+import { generateTest } from '../controllers/testController.js';
+const router = express.Router();
+router.use(requireAuth, requireTeacher);
+router.get('/profile', getTeacherProfile);
+router.get('/connection-key', getConnectionKey);
+router.get('/students', getConnectedStudents);
+router.get('/quizzes', getTeacherQuizzes);
+router.post('/quizzes/generate', generateTest);
+router.post('/quizzes/:id/publish', publishQuiz);
+router.get('/analytics', getTeacherAnalytics);
+router.post('/analytics/analyze', analyzeTeacherAnalytics);
+router.get('/reports', getTeacherReports);
+router.get('/reports/:id', getTeacherReport);
+export default router;

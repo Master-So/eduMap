@@ -1,9 +1,14 @@
 # Ignore node_modules in any folder
 node_modules/
+dist/
+.dist/
+build/
 
 # Ignore env files anywhere
 .env
-.env.local
+.env.*
+!.env.example
 
-# Mac system files
+# Mac & Windows system files
 .DS_Store
+Thumbs.db

@@ -1,0 +1,1 @@
+export default function QuizGenerationLoader() { return <div className="generation-loader"><span className="spinner" /><div><strong>Generating your quiz</strong><p>We’re shaping questions from your curriculum brief.</p></div></div>; }
