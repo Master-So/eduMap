@@ -8,13 +8,17 @@ const generateToken = (id, role) => jwt.sign({ id, role }, process.env.JWT_SECRE
 export const registerUser = async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
-    if (!name || !email || !password || !['teacher', 'student'].includes(role)) return res.status(400).json({ error: 'Name, email, password, and a valid role are required.' });
+    const assignedRole = role || 'teacher';
+    if (!name || !email || !password || !['teacher', 'student'].includes(assignedRole)) {
+      return res.status(400).json({ error: 'Name, email, password, and a valid role are required.' });
+    }
     const normalizedEmail = email.trim().toLowerCase();
     if (await User.findOne({ email: normalizedEmail })) return res.status(400).json({ error: 'User already exists.' });
-    const user = await User.create({ name: name.trim(), email: normalizedEmail, password: await bcrypt.hash(password, 10), role, connectionKey: await createUniqueConnectionKey(role) });
+    const user = await User.create({ name: name.trim(), email: normalizedEmail, password: await bcrypt.hash(password, 10), role: assignedRole, connectionKey: await createUniqueConnectionKey(assignedRole) });
     res.status(201).json({ _id: user.id, name: user.name, email: user.email, role: user.role, connectionKey: user.connectionKey, token: generateToken(user.id, user.role) });
   } catch (error) { res.status(500).json({ error: error.message }); }
 };
+
 
 export const loginUser = async (req, res) => {
   try {
@@ -28,5 +32,19 @@ export const loginUser = async (req, res) => {
 
 export const getCurrentUser = async (req, res) => {
   const user = await ensureConnectionKey(req.user);
-  res.json({ teacher: { _id: user.id, name: user.name, email: user.email, role: user.role, connectionKey: user.connectionKey } });
+  const payload = {
+    _id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    connectionKey: user.connectionKey,
+    connectedTeacher: user.connectedTeacher,
+  };
+  res.json({
+    ...payload,
+    user: payload,
+    student: payload,
+    teacher: payload,
+  });
 };
+

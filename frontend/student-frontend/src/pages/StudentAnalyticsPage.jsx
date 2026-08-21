@@ -60,10 +60,34 @@ export default function StudentAnalyticsPage() {
         }
       }
 
-      // 2. Load Real Dynamic Submissions from Storage & Compute Metrics
-      const studentId = student?._id || 'guest';
-      const realSubmissions = submissionStorage.getSubmissions(studentId);
-      const computed = submissionStorage.calculateAnalytics(realSubmissions);
+      // 2. Load Real Dynamic Submissions from Server or Storage & Compute Metrics
+      let submissionsList = [];
+      if (token) {
+        try {
+          const subRes = await studentApi.getSubmissions();
+          if (Array.isArray(subRes?.submissions) && subRes.submissions.length > 0) {
+            submissionsList = subRes.submissions.map((sub) => ({
+              testId: sub.testId?._id || sub.testId || 'quiz',
+              title: sub.testId?.title || `${sub.subject || 'Curriculum'} Quiz`,
+              subject: sub.subject || sub.testId?.subject || 'Science',
+              score: sub.score || 0,
+              total: sub.totalQuestions || 0,
+              percentage: sub.totalQuestions ? Math.round((sub.score / sub.totalQuestions) * 100) : 0,
+              answers: sub.answers || [],
+              submittedAt: sub.createdAt,
+            }));
+          }
+        } catch (subErr) {
+          console.warn('Could not fetch remote submissions:', subErr?.message);
+        }
+      }
+
+      if (!submissionsList.length) {
+        const studentId = student?._id || 'guest';
+        submissionsList = submissionStorage.getSubmissions(studentId);
+      }
+
+      const computed = submissionStorage.calculateAnalytics(submissionsList);
       setAnalyticsData(computed);
     } catch (err) {
       console.warn('Analytics compute note:', err.message);
@@ -71,6 +95,7 @@ export default function StudentAnalyticsPage() {
       setRefreshing(false);
     }
   };
+
 
   useEffect(() => {
     loadData();

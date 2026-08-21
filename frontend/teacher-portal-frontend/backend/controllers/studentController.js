@@ -4,14 +4,15 @@ import Submission from '../models/Submission.js';
 
 function studentQuizView(quiz) {
   const value = quiz.toObject ? quiz.toObject() : { ...quiz };
-  delete value.subject;
-  delete value.subjects;
-  delete value.topics;
-  delete value.chapters;
-  delete value.createdBy;
-  value.questions = (value.questions || []).map(({ correctIndex, topicTag, difficulty, ...question }) => ({ ...question, type: 'MCQ' }));
+  value.questions = (value.questions || []).map(({ correctIndex, ...question }) => ({
+    ...question,
+    type: 'MCQ',
+    question: question.questionText || question.question,
+    questionText: question.questionText || question.question,
+  }));
   return value;
 }
+
 
 export async function connectStudentToTeacher(req, res) {
   const { teacherConnectionKey } = req.body;
@@ -29,31 +30,118 @@ export async function getPublishedQuizzes(req, res) {
 }
 
 export async function getPublishedQuiz(req, res) {
-  const quiz = await Test.findOne({ _id: req.params.id, createdBy: req.user.connectedTeacher, published: true });
-  if (!quiz) return res.status(404).json({ error: 'Published quiz not found for this student.' });
-  res.json({ quiz: studentQuizView(quiz) });
+  try {
+    let quiz = null;
+    if (req.user?.connectedTeacher) {
+      quiz = await Test.findOne({ _id: req.params.id, createdBy: req.user.connectedTeacher, published: true });
+    }
+    if (!quiz) {
+      quiz = await Test.findOne({ _id: req.params.id, published: true });
+    }
+    if (!quiz) {
+      quiz = await Test.findById(req.params.id);
+    }
+    if (!quiz) return res.status(404).json({ error: 'Published quiz not found.' });
+    res.json({ quiz: studentQuizView(quiz), test: studentQuizView(quiz) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 }
 
 export async function submitStudentQuiz(req, res) {
-  const quiz = await Test.findOne({ _id: req.params.id, createdBy: req.user.connectedTeacher, published: true });
-  if (!quiz) return res.status(404).json({ error: 'Published quiz not found for this student.' });
-  const answers = Array.isArray(req.body.answers) ? req.body.answers : [];
-  if (!answers.length) return res.status(400).json({ error: 'At least one answer is required.' });
-  const submittedIds = new Set();
-  let score = 0;
-  const quickAnswers = [];
-  const gradedAnswers = answers.map((answer) => {
-    const question = quiz.questions.id(answer.questionId);
-    if (!question || submittedIds.has(String(question._id))) throw new Error(`Question ID ${answer.questionId} is invalid or duplicated.`);
-    submittedIds.add(String(question._id));
-    const selectedOptionIndex = Number(answer.selectedOptionIndex);
-    if (!Number.isInteger(selectedOptionIndex) || selectedOptionIndex < 0 || selectedOptionIndex > 3) throw new Error('Each answer must select one of the four MCQ options.');
-    const isCorrect = selectedOptionIndex === question.correctIndex;
-    if (isCorrect) score += 1;
-    quickAnswers.push({ questionId: question._id, selectedOptionIndex, correctOptionIndex: question.correctIndex, correctOption: question.options[question.correctIndex], isCorrect });
-    return { questionId: question._id, selectedOptionIndex, isCorrect, topicTag: question.topicTag || '' };
-  });
-  const submission = await Submission.create({ studentId: req.user._id, testId: quiz._id, answers: gradedAnswers, score, totalQuestions: quiz.questions.length, subject: quiz.subject || quiz.subjects?.[0] || 'Unassigned subject', chapters: quiz.chapters || [] });
-  const percentage = quiz.questions.length ? Math.round((score / quiz.questions.length) * 100) : 0;
-  res.status(201).json({ message: 'Quiz submitted successfully.', score, percentage, totalQuestions: quiz.questions.length, submissionId: submission._id, quickAnswers });
+  try {
+    let quiz = null;
+    if (req.user?.connectedTeacher) {
+      quiz = await Test.findOne({ _id: req.params.id, createdBy: req.user.connectedTeacher, published: true });
+    }
+    if (!quiz) {
+      quiz = await Test.findOne({ _id: req.params.id, published: true });
+    }
+    if (!quiz) {
+      quiz = await Test.findById(req.params.id);
+    }
+    if (!quiz) return res.status(404).json({ error: 'Quiz not found.' });
+
+    // Link student to teacher if not linked yet
+    if (!req.user.connectedTeacher && quiz.createdBy) {
+      await User.findByIdAndUpdate(req.user._id, { connectedTeacher: quiz.createdBy });
+    }
+
+    const answers = Array.isArray(req.body.answers) ? req.body.answers : [];
+    let score = 0;
+    const quickAnswers = [];
+    const gradedAnswers = [];
+
+    const questions = quiz.questions || [];
+    for (const question of questions) {
+      const studentAnswer = answers.find((a) => String(a.questionId) === String(question._id));
+      const selectedIndex = studentAnswer && studentAnswer.selectedOptionIndex !== undefined && studentAnswer.selectedOptionIndex !== null
+        ? Number(studentAnswer.selectedOptionIndex)
+        : -1;
+      
+      const isCorrect = selectedIndex >= 0 && selectedIndex === question.correctIndex;
+      if (isCorrect) score += 1;
+
+      const answeredText = selectedIndex >= 0 && question.options?.[selectedIndex]
+        ? question.options[selectedIndex]
+        : 'Not Answered';
+      const correctText = question.options?.[question.correctIndex] || '—';
+
+      quickAnswers.push({
+        questionId: question._id,
+        questionText: question.questionText || question.question || 'Question',
+        selectedIdx: selectedIndex,
+        selectedText: answeredText,
+        correctIdx: question.correctIndex,
+        correctText: correctText,
+        isCorrect,
+        topic: question.topicTag || quiz.subject || 'General',
+      });
+
+      gradedAnswers.push({
+        questionId: question._id,
+        selectedOptionIndex: selectedIndex >= 0 ? selectedIndex : 0,
+        isCorrect,
+        topicTag: question.topicTag || '',
+      });
+    }
+
+    const totalQuestions = questions.length || 1;
+    const percentage = Math.round((score / totalQuestions) * 100);
+
+    const submission = await Submission.create({
+      studentId: req.user._id,
+      testId: quiz._id,
+      answers: gradedAnswers,
+      score,
+      totalQuestions,
+      subject: quiz.subject || quiz.subjects?.[0] || 'Science',
+      chapters: quiz.chapters || [],
+    });
+
+    res.status(201).json({
+      message: 'Quiz submitted successfully.',
+      score,
+      percentage,
+      totalQuestions,
+      submissionId: submission._id,
+      quickAnswers,
+      review: quickAnswers,
+    });
+  } catch (error) {
+    console.error('Error submitting quiz:', error);
+    res.status(500).json({ error: error.message || 'Failed to submit quiz.' });
+  }
 }
+
+export async function getStudentSubmissions(req, res) {
+  try {
+    const submissions = await Submission.find({ studentId: req.user._id })
+      .populate('testId', 'title subject subjects chapters grade')
+      .sort({ createdAt: -1 });
+    res.json({ submissions });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}
+

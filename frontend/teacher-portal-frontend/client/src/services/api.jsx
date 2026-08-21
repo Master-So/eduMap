@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://5000-igk8k3bng8y5oux7rc9j7-dfdc0412.us3.manus.computer/api";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
 
 export async function apiRequest(path, options = {}) {
   const token = localStorage.getItem("teacher_portal_token");

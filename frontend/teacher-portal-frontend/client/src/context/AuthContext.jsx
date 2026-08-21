@@ -22,18 +22,30 @@ export function AuthProvider({ children }) {
     isAuthenticated: Boolean(session?.token && session?.teacher?.role === "teacher"),
     initializing,
     async login(credentials) {
-      if (!credentials?.email?.trim() || !credentials?.password) throw new Error("Enter an email and password to continue.");
-      const nextSession = { token: "frontend-test-token", teacher: { name: credentials.name?.trim() || "Test Teacher", email: credentials.email.trim(), role: "teacher" } };
-      if (nextSession?.teacher?.role !== "teacher") throw new Error("This account is not authorized for the Teacher Portal.");
-      authService.storeSession(nextSession);
+      if (!credentials?.email?.trim() || !credentials?.password) {
+        throw new Error("Enter an email and password to continue.");
+      }
+      const nextSession = await authService.login(credentials);
       setSession(nextSession);
       return nextSession;
     },
-    logout() { authService.logout(); setSession(null); },
+    async register(userData) {
+      if (!userData?.name?.trim() || !userData?.email?.trim() || !userData?.password) {
+        throw new Error("Name, email, and password are required.");
+      }
+      const nextSession = await authService.register(userData);
+      setSession(nextSession);
+      return nextSession;
+    },
+    logout() {
+      authService.logout();
+      setSession(null);
+    },
   }), [session, initializing]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
+
 
 export function useAuth() {
   const value = useContext(AuthContext);

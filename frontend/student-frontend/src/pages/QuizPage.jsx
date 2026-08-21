@@ -181,29 +181,60 @@ export default function QuizPage() {
     setLoading(true);
 
     const questions = testData?.questions || [];
+    const formattedAnswers = questions.map((q, idx) => ({
+      questionId: q._id || `q_${idx}`,
+      selectedOptionIndex: answers[idx] !== undefined ? answers[idx] : -1,
+    }));
+
     let score = 0;
-    const reviewList = [];
+    let total = questions.length || 1;
+    let percentage = 0;
+    let reviewList = [];
 
-    questions.forEach((q, idx) => {
-      const selected = answers[idx];
-      const answered = selected !== undefined;
-      const isCorrect = answered && selected === q.correctIndex;
-      if (isCorrect) score += 1;
+    try {
+      const serverRes = await studentApi.submitQuiz(testId, formattedAnswers);
+      score = Number(serverRes?.score ?? 0);
+      total = Number(serverRes?.totalQuestions ?? questions.length);
+      percentage = Number(serverRes?.percentage ?? (total > 0 ? Math.round((score / total) * 100) : 0));
+      
+      const serverReview = serverRes?.quickAnswers || serverRes?.review;
+      if (Array.isArray(serverReview) && serverReview.length > 0) {
+        reviewList = serverReview.map((item, idx) => ({
+          questionId: item.questionId || questions[idx]?._id || `q_${idx}`,
+          questionText: item.questionText || questions[idx]?.questionText || questions[idx]?.question || 'Question',
+          selectedIdx: item.selectedIdx ?? item.selectedOptionIndex,
+          selectedText: item.selectedText || item.selectedOption || (item.selectedOptionIndex >= 0 && questions[idx]?.options ? questions[idx].options[item.selectedOptionIndex] : 'Not Answered'),
+          correctIdx: item.correctIdx ?? item.correctOptionIndex,
+          correctText: item.correctText || item.correctOption || '—',
+          isCorrect: Boolean(item.isCorrect),
+          topic: item.topic || item.topicTag || questions[idx]?.topicTag || testData?.subject || 'General',
+        }));
+      }
+    } catch (submitErr) {
+      console.warn('Backend submission fallback note:', submitErr?.message || submitErr);
+    }
 
-      reviewList.push({
-        questionId: q._id || `q_${idx}`,
-        questionText: q.question,
-        selectedIdx: selected,
-        selectedText: answered ? q.options[selected] : 'Not Answered',
-        correctIdx: q.correctIndex,
-        correctText: q.options[q.correctIndex],
-        isCorrect,
-        topic: q.topicTag || 'General',
+    if (!reviewList.length) {
+      reviewList = questions.map((q, idx) => {
+        const sel = answers[idx];
+        const answered = sel !== undefined && sel !== -1;
+        const isCorrect = answered && q.correctIndex !== undefined && sel === q.correctIndex;
+        if (isCorrect) score += 1;
+
+        return {
+          questionId: q._id || `q_${idx}`,
+          questionText: q.questionText || q.question || 'Question',
+          selectedIdx: sel,
+          selectedText: answered && q.options?.[sel] ? q.options[sel] : 'Not Answered',
+          correctIdx: q.correctIndex,
+          correctText: q.correctIndex !== undefined && q.options?.[q.correctIndex] ? q.options[q.correctIndex] : (q.options ? q.options[0] : '—'),
+          isCorrect: Boolean(isCorrect),
+          topic: q.topicTag || testData?.subject || 'General',
+        };
       });
-    });
-
-    const total = questions.length;
-    const percentage = total > 0 ? Math.round((score / total) * 100) : 0;
+      total = questions.length || 1;
+      percentage = Math.round((score / total) * 100);
+    }
 
     emitStudentFinish({
       studentName: studentName.trim(),
@@ -213,25 +244,17 @@ export default function QuizPage() {
       answers: reviewList,
     });
 
-    try {
-      await studentApi.submitQuiz(testId, reviewList.map((a) => ({
-        questionId: a.questionId,
-        selectedOptionIndex: a.selectedIdx,
-      })));
-    } catch (submitErr) {
-      console.warn('Submission API note:', submitErr.message);
-    }
-
-    // Save dynamic submission for analytics computation
+    // Save dynamic submission for local storage computation
     submissionStorage.saveSubmission(student?._id || 'guest', {
       testId: testId || 'live_quiz',
-      title: testData?.title || 'Curriculum Quiz',
-      subject: testData?.subject || 'Physics',
+      title: testData?.title || `${testData?.subject || 'Curriculum'} Quiz`,
+      subject: testData?.subject || 'Science',
       score,
       total,
       percentage,
       timeElapsed,
       answers: reviewList,
+      review: reviewList,
     });
 
     setResult({
@@ -254,6 +277,7 @@ export default function QuizPage() {
       });
     } catch (e) {}
   };
+
 
   const currQ = testData?.questions?.[currentIdx];
   const progress = testData?.questions?.length
@@ -373,8 +397,9 @@ export default function QuizPage() {
 
           {/* Question Text */}
           <h2 style={{ font: "400 1.6rem/1.25 'DM Serif Display', Georgia, serif", color: 'var(--ink)', margin: '0 0 1.8rem' }}>
-            {currQ.question}
+            {currQ.questionText || currQ.question}
           </h2>
+
 
           {/* MCQ Options */}
           <div style={{ display: 'grid', gap: '0.8rem', marginBottom: '2rem' }}>
