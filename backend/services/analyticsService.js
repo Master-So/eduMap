@@ -58,7 +58,12 @@ export async function buildTeacherAnalytics(teacherId) {
       const subject = normalizeSubject(rawSubject);
       const correct = answer.isCorrect ? 1 : 0;
       addBucket(subjects, subject, correct, 1);
-      addBucket(chapters, chapter, correct, 1);
+      const chapterKey = `${subject}::${chapter}`;
+      const chapterBucket = chapters.get(chapterKey) || { name: chapter, subject, correct: 0, total: 0 };
+      chapterBucket.correct += correct;
+      chapterBucket.total += 1;
+      chapterBucket.percentage = percent(chapterBucket.correct, chapterBucket.total);
+      chapters.set(chapterKey, chapterBucket);
       totalCorrect += correct;
       totalAnswers += 1;
     }
