@@ -1,7 +1,7 @@
 import React from 'react';
-import { Menu, LogIn, UserPlus, LogOut, KeyRound } from 'lucide-react';
+import { Menu, LogIn, UserPlus, LogOut, ExternalLink, Globe } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { getStudentUser, clearAuth } from '../../services/api';
+import { getStudentUser, clearAuth, TEACHER_PORTAL_URL } from '../../services/api';
 
 function getInitials(name) {
   if (!name) return 'ST';
@@ -32,13 +32,36 @@ export default function Topbar({ onMenu }) {
           <span className="topbar-kicker">Student workspace</span>
           <span className="topbar-status">
             <span className="status-dot" /> 
-            {student?.connectedTeacher ? 'Connected to Teacher' : 'Teacher Key Required for Tests'}
+            {(student?.connectedTeachers?.length || student?.connectedTeacher) ? 'Connected to Teacher(s)' : 'Teacher Key Required for Tests'}
           </span>
         </div>
       </div>
 
-      {/* Right: Navigation Buttons (Login, Register, Profile, Logout) */}
+      {/* Right: Navigation Buttons (Portal Switcher, Login, Register, Profile, Logout) */}
       <div className="topbar-actions">
+        {/* Quick Portal Switcher for Judges & Demos */}
+        <a
+          href={TEACHER_PORTAL_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="button ghost small"
+          title="Switch to Teacher Portal"
+          style={{ padding: '0.4rem 0.65rem', fontSize: '0.74rem', border: '1px solid rgba(21,39,53,0.12)', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+        >
+          <span>Teacher Portal</span>
+          <ExternalLink size={12} />
+        </a>
+
+        <Link
+          to="/gateway"
+          className="button ghost small"
+          title="Open Unified Ecosystem Gateway"
+          style={{ padding: '0.4rem 0.65rem', fontSize: '0.74rem', border: '1px solid rgba(21,39,53,0.12)', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+        >
+          <Globe size={12} color="var(--teal)" />
+          <span>Gateway</span>
+        </Link>
+
         {student ? (
           <>
             <div className="profile-chip">
@@ -73,3 +96,4 @@ export default function Topbar({ onMenu }) {
     </header>
   );
 }
+

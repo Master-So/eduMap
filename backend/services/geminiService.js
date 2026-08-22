@@ -241,12 +241,14 @@ export const generateTestQuestions = async (subjects, grade, chapters, count = 1
     'Return only valid JSON in this shape: {"questions":[{"questionText":"...","options":["...","...","...","..."],"correctIndex":0,"topicTag":"exact chapter","difficulty":"Easy|Medium|Hard"}]}',
   ].join(' ');
 
-  const model = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
+  const model = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
+  const candidateModels = [model, 'gemini-3.5-flash', 'gemini-3.7-flash', 'gemini-flash-latest'].filter(Boolean);
 
   for (let attempt = 0; attempt < retries; attempt += 1) {
+    const currentModel = candidateModels[attempt % candidateModels.length] || 'gemini-3.5-flash';
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      const response = await ai.models.generateContent({ model, contents: prompt, config: { responseMimeType: 'application/json' } });
+      const response = await ai.models.generateContent({ model: currentModel, contents: prompt, config: { responseMimeType: 'application/json' } });
       const parsed = JSON.parse(response.text || '{}');
       const rawQuestions = Array.isArray(parsed.questions) ? parsed.questions : [];
 
@@ -284,3 +286,84 @@ export const generateTestQuestions = async (subjects, grade, chapters, count = 1
 
   return generateCurriculumFallbackQuestions(chapterList, questionCount);
 };
+
+export async function generateStudentChatResponse({ message, history = [], topic = 'General', grade = '10th', studentName = 'Student' }) {
+  if (!message) return 'Hi! How can I help you with your studies today?';
+
+  if (!process.env.GEMINI_API_KEY) {
+    return generateFallbackTutorResponse(message, topic);
+  }
+
+  const systemInstructions = [
+    `You are "EduAI Tutor", an encouraging, patient, and brilliant academic study assistant on the EduMap platform.`,
+    `You are helping a ${grade} student named ${studentName}. Current focus topic: ${topic}.`,
+    `Your goals:`,
+    `1. Answer questions clearly, accurately, and conceptually based on curriculum standard syllabi (NCERT/CBSE/State Board).`,
+    `2. If the student is asking for a formula or concept (like Pythagoras theorem, Ohm's Law, Optics, Photosynthesis, Quadratic Equations), explain the intuition, state the formula clearly, and give a quick real-world example.`,
+    `3. If the student has doubts about a quiz question or their weak topics, break it down step-by-step with tips.`,
+    `4. Keep explanations concise, structured (using bullet points and bold text), and easy to scan.`,
+    `5. Always maintain a warm, motivating, and supportive tone.`,
+    `6. CRITICAL FORMATTING RULE: Do NOT use LaTeX dollar signs like $a$, $b$, $a^2$, $$...$$, or \\( ... \\). Write all mathematical equations, variables, and units using clean readable Unicode symbols and superscripts/subscripts (for example: a² + b² = c², V = I × R, CO₂, H₂O, √x, ±, ×, ÷, °). Never enclose regular single variables in dollar signs.`,
+  ].join('\n');
+
+  // Format past history for context
+  const formattedHistory = (history || []).slice(-6).map((h) => ({
+    role: h.role === 'user' ? 'user' : 'model',
+    parts: [{ text: h.text || h.message || '' }],
+  }));
+
+  const contents = [
+    ...formattedHistory,
+    {
+      role: 'user',
+      parts: [{ text: `${systemInstructions}\n\nStudent asks: "${message}"` }],
+    },
+  ];
+
+  const candidateModels = [
+    process.env.GEMINI_MODEL,
+    'gemini-3.5-flash',
+    'gemini-3.7-flash',
+    'gemini-flash-latest',
+  ].filter(Boolean);
+
+  for (const model of candidateModels) {
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const response = await ai.models.generateContent({
+        model,
+        contents,
+      });
+
+      if (response && response.text) {
+        return response.text.trim();
+      }
+    } catch (err) {
+      console.warn(`[GeminiChat] Model ${model} returned:`, err.message);
+    }
+  }
+
+  return generateFallbackTutorResponse(message, topic);
+}
+
+function generateFallbackTutorResponse(msg, topic) {
+  const lower = msg.toLowerCase();
+
+  if (lower.includes('formula') || lower.includes('equation')) {
+    return `### 📐 Core Formulas for ${topic}\n\n- **Ohm's Law:** \\( V = I \\times R \\) (Voltage = Current × Resistance)\n- **Kinetic Energy:** \\( KE = \\frac{1}{2} m v^2 \\)\n- **Quadratic Formula:** \\( x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a} \\)\n- **Mirror Equation:** \\( \\frac{1}{f} = \\frac{1}{v} + \\frac{1}{u} \\)\n\n*Tip: Always remember to convert units into SI standard before plugging into numerical formulas!*`;
+  }
+
+  if (lower.includes('light') || lower.includes('reflection') || lower.includes('refraction')) {
+    return `### 💡 Optics Essentials\n\n1. **Law of Reflection:** Angle of incidence \\( (\\angle i) \\) equals Angle of reflection \\( (\\angle r) \\).\n2. **Refractive Index \\( (n) \\):** \\( n = \\frac{c}{v} \\) (Speed of light in vacuum / Speed in medium).\n3. **Concave Mirror:** Forms real & inverted images in most cases, but virtual & enlarged when object is between Pole and Focus.\n4. **Convex Mirror:** Always produces virtual, erect, and diminished images (used in vehicle rear-view mirrors).\n\nWould you like a sample practice question on lens power or focal length?`;
+  }
+
+  if (lower.includes('electricity') || lower.includes('current') || lower.includes('circuit')) {
+    return `### ⚡ Electricity Breakdown\n\n- **Electric Current \\( (I) \\):** \\( I = \\frac{Q}{t} \\) (Amperes)\n- **Resistance Factors:** \\( R = \\rho \\frac{l}{A} \\) (Directly proportional to length, inversely to cross-section area)\n- **Series vs Parallel:**\n  - Series: \\( R_{eq} = R_1 + R_2 + ... \\) (Same current flows through each resistor)\n  - Parallel: \\( \\frac{1}{R_{eq}} = \\frac{1}{R_1} + \\frac{1}{R_2} \\) (Same voltage across branches)\n\nNeed help solving a specific circuit diagram or numerical problem?`;
+  }
+
+  if (lower.includes('life processes') || lower.includes('biology') || lower.includes('cell')) {
+    return `### 🌿 Life Processes Quick Revision\n\n- **Photosynthesis:** \\( 6CO_2 + 6H_2O \\xrightarrow{\\text{Light, Chlorophyll}} C_6H_{12}O_6 + 6O_2 \\)\n- **Respiration:** Breakdown of glucose via Glycolysis (in cytoplasm) followed by aerobic Krebs cycle in Mitochondria producing 38 ATP.\n- **Human Circulatory System:** Double circulation prevents mixing of oxygenated (left heart) and deoxygenated (right heart) blood.\n- **Nephron:** Functional filtration unit of the kidney responsible for ultrafiltration and selective reabsorption.`;
+  }
+
+  return `### 🎓 EduAI Study Helper\n\nI'm ready to help you master **${topic}**! You can ask me:\n\n- *"Explain Newton's Laws of Motion with real examples"*\n- *"What is the difference between combination and decomposition reactions?"*\n- *"Give me a 3-step revision plan for my upcoming exam"*\n- *"Solve: An object is placed at 20 cm in front of a concave lens of focal length 15 cm..."*\n\nWhat topic would you like to explore?`;
+}

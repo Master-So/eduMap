@@ -47,6 +47,8 @@ export default function RegisterPage() {
           role: data.role || 'student',
           connectionKey: data.connectionKey,
           connectedTeacher: data.connectedTeacher,
+          connectedTeachers: data.connectedTeachers,
+          connectedTeacherDetails: data.connectedTeacherDetails,
         });
         navigate('/analytics');
       } else {

@@ -1,6 +1,7 @@
 import User from '../models/user.js';
 import Test from '../models/Test.js';
 import Submission from '../models/Submission.js';
+import { generateStudentChatResponse } from '../services/geminiService.js';
 
 function studentQuizView(quiz) {
   const value = quiz.toObject ? quiz.toObject() : { ...quiz };
@@ -13,19 +14,45 @@ function studentQuizView(quiz) {
   return value;
 }
 
+function connectedTeacherIds(student) {
+  return [...new Set([
+    ...(student?.connectedTeachers || []).map((id) => String(id)),
+    ...(student?.connectedTeacher ? [String(student.connectedTeacher)] : []),
+  ])];
+}
+
 
 export async function connectStudentToTeacher(req, res) {
   const { teacherConnectionKey } = req.body;
   if (!teacherConnectionKey?.trim()) return res.status(400).json({ error: 'Teacher connection key is required.' });
   const teacher = await User.findOne({ role: 'teacher', connectionKey: teacherConnectionKey.trim() });
   if (!teacher) return res.status(404).json({ error: 'Teacher connection key was not found.' });
-  const student = await User.findByIdAndUpdate(req.user._id, { connectedTeacher: teacher._id }, { new: true }).select('-password');
+  const student = await User.findByIdAndUpdate(
+    req.user._id,
+    { $addToSet: { connectedTeachers: teacher._id }, $set: { connectedTeacher: teacher._id } },
+    { new: true }
+  ).select('-password');
   res.json({ message: 'Student connected successfully.', student, teacher: { id: teacher.id, name: teacher.name } });
 }
 
+export async function disconnectStudentFromTeacher(req, res) {
+  const teacherId = req.params.teacherId;
+  const studentBeforeUpdate = await User.findById(req.user._id).select('connectedTeacher connectedTeachers');
+  if (!studentBeforeUpdate) return res.status(404).json({ error: 'Student not found.' });
+  const ids = connectedTeacherIds(studentBeforeUpdate);
+  const targetId = teacherId || ids[ids.length - 1];
+  if (!targetId || !ids.includes(String(targetId))) return res.status(404).json({ error: 'Teacher connection not found.' });
+  const update = { $pull: { connectedTeachers: targetId } };
+  if (String(studentBeforeUpdate.connectedTeacher || '') === String(targetId)) update.$unset = { connectedTeacher: 1 };
+  const student = await User.findByIdAndUpdate(req.user._id, update, { new: true }).select('-password');
+  if (!student) return res.status(404).json({ error: 'Student not found.' });
+  res.json({ message: 'Disconnected from teacher successfully.', student });
+}
+
 export async function getPublishedQuizzes(req, res) {
-  if (!req.user.connectedTeacher) return res.json({ quizzes: [] });
-  const quizzes = await Test.find({ createdBy: req.user.connectedTeacher, published: true }).sort({ publishedAt: -1 });
+  const teacherIds = connectedTeacherIds(req.user);
+  if (!teacherIds.length) return res.json({ quizzes: [] });
+  const quizzes = await Test.find({ createdBy: { $in: teacherIds }, published: true }).sort({ publishedAt: -1 });
   const quizIds = quizzes.map((q) => q._id);
   const submissions = await Submission.find({ studentId: req.user._id, testId: { $in: quizIds } });
   const submissionMap = new Map(submissions.map((s) => [String(s.testId), s]));
@@ -49,16 +76,8 @@ export async function getPublishedQuizzes(req, res) {
 
 export async function getPublishedQuiz(req, res) {
   try {
-    let quiz = null;
-    if (req.user?.connectedTeacher) {
-      quiz = await Test.findOne({ _id: req.params.id, createdBy: req.user.connectedTeacher, published: true });
-    }
-    if (!quiz) {
-      quiz = await Test.findOne({ _id: req.params.id, published: true });
-    }
-    if (!quiz) {
-      quiz = await Test.findById(req.params.id);
-    }
+    const teacherIds = connectedTeacherIds(req.user);
+    const quiz = await Test.findOne({ _id: req.params.id, createdBy: { $in: teacherIds }, published: true });
     if (!quiz) return res.status(404).json({ error: 'Published quiz not found.' });
 
     const view = studentQuizView(quiz);
@@ -82,16 +101,8 @@ export async function getPublishedQuiz(req, res) {
 
 export async function submitStudentQuiz(req, res) {
   try {
-    let quiz = null;
-    if (req.user?.connectedTeacher) {
-      quiz = await Test.findOne({ _id: req.params.id, createdBy: req.user.connectedTeacher, published: true });
-    }
-    if (!quiz) {
-      quiz = await Test.findOne({ _id: req.params.id, published: true });
-    }
-    if (!quiz) {
-      quiz = await Test.findById(req.params.id);
-    }
+    const teacherIds = connectedTeacherIds(req.user);
+    const quiz = await Test.findOne({ _id: req.params.id, createdBy: { $in: teacherIds }, published: true });
     if (!quiz) return res.status(404).json({ error: 'Quiz not found.' });
 
     // Enforce one test attempt per student
@@ -108,8 +119,8 @@ export async function submitStudentQuiz(req, res) {
     }
 
     // Link student to teacher if not linked yet
-    if (!req.user.connectedTeacher && quiz.createdBy) {
-      await User.findByIdAndUpdate(req.user._id, { connectedTeacher: quiz.createdBy });
+    if (!teacherIds.includes(String(quiz.createdBy))) {
+      await User.findByIdAndUpdate(req.user._id, { $addToSet: { connectedTeachers: quiz.createdBy }, $set: { connectedTeacher: quiz.createdBy } });
     }
 
     const answers = Array.isArray(req.body.answers) ? req.body.answers : [];
@@ -307,4 +318,31 @@ export async function getQuizSubmissionResult(req, res) {
     res.status(500).json({ error: error.message || 'Failed to retrieve assessment result.' });
   }
 }
+
+export async function chatWithStudentAssistant(req, res) {
+  try {
+    const { message, history = [], topic = 'General', grade = '10th' } = req.body;
+    if (!message || !String(message).trim()) {
+      return res.status(400).json({ error: 'Message content is required.' });
+    }
+
+    const studentName = req.user?.name || 'Student';
+    const reply = await generateStudentChatResponse({
+      message: String(message).trim(),
+      history,
+      topic,
+      grade,
+      studentName,
+    });
+
+    res.json({
+      reply,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error('Error handling student chat assistant:', error);
+    res.status(500).json({ error: error.message || 'Failed to generate study assistant response.' });
+  }
+}
+
 

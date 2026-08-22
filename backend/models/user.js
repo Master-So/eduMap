@@ -6,6 +6,8 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true },
   role: { type: String, enum: ['student', 'teacher'], required: true },
   connectionKey: { type: String, unique: true, sparse: true },
+  connectedTeachers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  // Kept for compatibility with students created before multi-teacher connections.
   connectedTeacher: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 }, { timestamps: true });
 

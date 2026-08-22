@@ -20,5 +20,22 @@ export async function requireAuth(req, res, next) {
     next();
   } catch { return res.status(401).json({ error: 'Invalid or expired token.' }); }
 }
+
+export async function optionalAuth(req, res, next) {
+  try {
+    const header = req.headers.authorization || '';
+    const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+    if (token) {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const user = await User.findById(decoded.id);
+      if (user) req.user = user;
+    }
+  } catch {
+    // Ignore invalid token for optional auth
+  }
+  next();
+}
+
 export function requireTeacher(req, res, next) { if (req.user?.role !== 'teacher') return res.status(403).json({ error: 'Teacher access required.' }); next(); }
 export function requireStudent(req, res, next) { if (req.user?.role !== 'student') return res.status(403).json({ error: 'Student access required.' }); next(); }
+

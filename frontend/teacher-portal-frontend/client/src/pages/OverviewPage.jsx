@@ -321,6 +321,11 @@ export default function OverviewPage() {
               <small>{kpis.students ?? data.totals?.students ?? 0} connected students</small>
             </div>
             <div className="reference-kpi">
+              <span>Connected students</span>
+              <strong>{kpis.students ?? data.totals?.connectedStudents ?? data.totals?.students ?? 0}</strong>
+              <small>Current classroom connections</small>
+            </div>
+            <div className="reference-kpi">
               <span>Weakest subject</span>
               <strong className="kpi-text">{kpis.weakSubject || data.aiAnalysis?.weakestSubject?.name || '—'}</strong>
               <small>{data.aiAnalysis?.weakestSubject?.percentage !== undefined && data.aiAnalysis?.weakestSubject?.percentage !== null ? `${formatPercent(data.aiAnalysis.weakestSubject.percentage)} average` : 'No data yet'}</small>
@@ -409,7 +414,7 @@ export default function OverviewPage() {
             <div className="reference-panel insight-analysis">
               <div className="reference-panel-head">
                 <div>
-                  <span className="eyebrow">Gemini teaching brief</span>
+                  <span className="eyebrow">AI Teaching brief</span>
                   <h2>What to do next</h2>
                 </div>
                 <BrainCircuit size={18} />
@@ -441,7 +446,7 @@ export default function OverviewPage() {
 
           <div className="reference-footer">
             <Target size={15} />
-            <span>Powered by server-scored MCQs and the Gemini analysis contract. Subject and chapter metadata stays hidden from students.</span>
+            <span>Powered by server-scored MCQs and the AI analysis contract. Subject and chapter metadata stays hidden from students.</span>
           </div>
         </>
       )}

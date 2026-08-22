@@ -1,5 +1,8 @@
-// API Client configuration - Backend runs on port 5001
-export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+// API Client configuration - Backend runs on port 5001 or reverse-proxy /api
+export const API_BASE_URL = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:5001' : '');
+
+export const TEACHER_PORTAL_URL =
+  import.meta.env.VITE_TEACHER_PORTAL_URL || 'https://edumap-teacher.vercel.app';
 
 // Token Management
 export const getAuthToken = () => localStorage.getItem('edu_student_token');
@@ -93,6 +96,15 @@ export const studentApi = {
     });
   },
 
+  getCurrentUser: async () => {
+    return request('/api/auth/me');
+  },
+
+  disconnectFromTeacher: async (teacherId) => {
+    const endpoint = teacherId ? `/api/students/connection/${encodeURIComponent(teacherId)}` : '/api/students/connection';
+    return request(endpoint, { method: 'DELETE' });
+  },
+
   getPublishedQuizzes: async () => {
     return request('/api/students/quizzes');
   },
@@ -115,7 +127,15 @@ export const studentApi = {
   getSubmissions: async () => {
     return request('/api/students/submissions');
   },
+
+  chatWithAssistant: async (message, history = [], topic = 'General', grade = '10th') => {
+    return request('/api/students/chat', {
+      method: 'POST',
+      body: JSON.stringify({ message, history, topic, grade }),
+    });
+  },
 };
+
 
 
 // Local Submission & Dynamic Analytics Calculation

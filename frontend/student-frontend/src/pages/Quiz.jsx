@@ -440,7 +440,7 @@ export default function Quiz() {
 
             <div className="flex items-center justify-center gap-2 text-xs font-mono text-emerald-400">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-              <span>Real-time channel synced with port 5001</span>
+              <span>Real-time assessment channel active</span>
             </div>
           </div>
         )}

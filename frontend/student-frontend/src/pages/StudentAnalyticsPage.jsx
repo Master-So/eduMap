@@ -31,6 +31,7 @@ export default function StudentAnalyticsPage() {
   const [connecting, setConnecting] = useState(false);
   const [connectError, setConnectError] = useState('');
   const [connectSuccess, setConnectSuccess] = useState('');
+  const [disconnecting, setDisconnecting] = useState(false);
 
   // Quizzes and Dynamic Analytics Data State
   const [quizzes, setQuizzes] = useState([]);
@@ -38,7 +39,13 @@ export default function StudentAnalyticsPage() {
   const [analyticsData, setAnalyticsData] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  const isConnected = Boolean(student?.connectedTeacher);
+  const connectedTeacherIds = [...new Set([
+    ...(student?.connectedTeachers || []).map((teacher) => String(teacher?.id || teacher?._id || teacher)),
+    ...(student?.connectedTeacher ? [String(student.connectedTeacher)] : []),
+  ])];
+  const connectedTeacherDetails = student?.connectedTeacherDetails || [];
+  const teacherNameFor = (teacherId) => connectedTeacherDetails.find((teacher) => String(teacher.id || teacher._id) === String(teacherId))?.name || (String(student?.connectedTeacher) === String(teacherId) ? student?.teacherName : null) || 'Teacher';
+  const isConnected = connectedTeacherIds.length > 0;
 
   // Load Real Quizzes and Compute Real Dynamic Analytics
   const loadData = async () => {
@@ -58,6 +65,8 @@ export default function StudentAnalyticsPage() {
         } finally {
           setQuizzesLoading(false);
         }
+      } else {
+        setQuizzes([]);
       }
 
       // 2. Load Real Dynamic Submissions from Server or Storage & Compute Metrics
@@ -99,7 +108,30 @@ export default function StudentAnalyticsPage() {
 
   useEffect(() => {
     loadData();
-  }, [student?.connectedTeacher, student?._id]);
+  }, [student?.connectedTeacher, student?.connectedTeachers, student?._id]);
+
+  useEffect(() => {
+    let active = true;
+    const syncConnection = async () => {
+      if (!token) return;
+      try {
+        const response = await studentApi.getCurrentUser();
+        const remoteStudent = response?.student || response?.user || response;
+        if (active && remoteStudent) {
+          setStudentUser(remoteStudent);
+          setStudent(remoteStudent);
+        }
+      } catch (error) {
+        console.warn('Could not refresh connection status:', error.message);
+      }
+    };
+    syncConnection();
+    window.addEventListener('focus', syncConnection);
+    return () => {
+      active = false;
+      window.removeEventListener('focus', syncConnection);
+    };
+  }, []);
 
   // Handle Teacher Connection Key Submission
   const handleConnectTeacher = async (e) => {
@@ -118,6 +150,11 @@ export default function StudentAnalyticsPage() {
       const updatedStudent = {
         ...student,
         connectedTeacher: response.teacher?.id || response.student?.connectedTeacher || true,
+        connectedTeachers: response.student?.connectedTeachers || [...connectedTeacherIds, response.teacher?.id].filter(Boolean),
+        connectedTeacherDetails: [
+          ...connectedTeacherDetails.filter((teacher) => String(teacher.id || teacher._id) !== String(response.teacher?.id)),
+          { id: response.teacher?.id, name: response.teacher?.name || 'Teacher' },
+        ],
         teacherName: response.teacher?.name || 'Instructor',
       };
       setStudentUser(updatedStudent);
@@ -128,6 +165,25 @@ export default function StudentAnalyticsPage() {
       setConnectError(err.message || 'Teacher connection key was not found. Please verify the key with your teacher.');
     } finally {
       setConnecting(false);
+    }
+  };
+
+  const handleDisconnectTeacher = async (teacherId) => {
+    setDisconnecting(true);
+    setConnectError('');
+    setConnectSuccess('');
+    try {
+      await studentApi.disconnectFromTeacher(teacherId);
+      const remainingTeacherIds = connectedTeacherIds.filter((id) => id !== String(teacherId));
+      const updatedStudent = { ...student, connectedTeacher: remainingTeacherIds[remainingTeacherIds.length - 1] || null, connectedTeachers: remainingTeacherIds, teacherName: remainingTeacherIds.length ? student?.teacherName : null };
+      setStudentUser(updatedStudent);
+      setStudent(updatedStudent);
+      setQuizzes([]);
+      setConnectSuccess('Disconnected from teacher successfully.');
+    } catch (err) {
+      setConnectError(err.message || 'Unable to disconnect from teacher.');
+    } finally {
+      setDisconnecting(false);
     }
   };
 
@@ -219,25 +275,24 @@ export default function StudentAnalyticsPage() {
           </p>
 
           {/* Key Form / Status */}
-          {!isConnected ? (
-            <form onSubmit={handleConnectTeacher} className="key-row">
-              <input
-                type="text"
-                value={teacherKey}
-                onChange={(e) => setTeacherKey(e.target.value)}
-                placeholder="Enter Teacher Connection Key (e.g. TCH-9876)"
-                className="key-input"
-                disabled={connecting}
-              />
-              <button
-                type="submit"
-                className="button primary"
-                disabled={connecting || !teacherKey.trim()}
-              >
-                {connecting ? 'Validating Key...' : 'Connect to Teacher'}
-              </button>
-            </form>
-          ) : (
+          <form onSubmit={handleConnectTeacher} className="key-row">
+            <input
+              type="text"
+              value={teacherKey}
+              onChange={(e) => setTeacherKey(e.target.value)}
+              placeholder="Enter Teacher Connection Key (e.g. TCH-9876)"
+              className="key-input"
+              disabled={connecting}
+            />
+            <button
+              type="submit"
+              className="button primary"
+              disabled={connecting || !teacherKey.trim()}
+            >
+              {connecting ? 'Validating Key...' : isConnected ? 'Connect Another Teacher' : 'Connect to Teacher'}
+            </button>
+          </form>
+          {isConnected && (
             <div className="key-row">
               <span className="key-badge">
                 STATUS: UNLOCKED & CONNECTED
@@ -245,6 +300,13 @@ export default function StudentAnalyticsPage() {
               <span style={{ fontSize: '0.78rem', color: 'var(--moss)' }}>
                 Teacher access key is active.
               </span>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.45rem' }}>
+                {connectedTeacherIds.map((teacherId) => (
+                  <button key={teacherId} type="button" className="button ghost small" onClick={() => handleDisconnectTeacher(teacherId)} disabled={disconnecting}>
+                    {disconnecting ? 'Disconnecting...' : `Disconnect from ${teacherNameFor(teacherId)}`}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 

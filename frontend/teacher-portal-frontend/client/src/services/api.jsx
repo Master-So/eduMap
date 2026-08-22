@@ -1,4 +1,10 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:5001/api' : '/api');
+
+export const STUDENT_PORTAL_URL =
+  import.meta.env.VITE_STUDENT_PORTAL_URL ||
+  (typeof window !== 'undefined' && (window.location.port === '3000' || window.location.port === '3001' || window.location.hostname === 'localhost')
+    ? `http://${window.location.hostname}:5173`
+    : 'https://edumap-master.vercel.app');
 
 export async function apiRequest(path, options = {}) {
   const token = localStorage.getItem("teacher_portal_token");
