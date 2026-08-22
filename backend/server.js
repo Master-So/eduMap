@@ -35,7 +35,7 @@ app.use('/api/teacher', teacherRoutes);
 app.use('/api/students', studentRoutes);
 
 // Define the Port
-const PORT = process.env.BACKEND_PORT || 5000;
+const PORT = process.env.PORT || process.env.BACKEND_PORT || 5001;
 
 // Start the Server
 app.listen(PORT, () => {
