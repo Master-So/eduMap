@@ -32,7 +32,7 @@ export default function Topbar({ onMenu }) {
           <span className="topbar-kicker">Student workspace</span>
           <span className="topbar-status">
             <span className="status-dot" /> 
-            {student?.connectedTeacher ? 'Connected to Teacher' : 'Teacher Key Required for Tests'}
+            {(student?.connectedTeachers?.length || student?.connectedTeacher) ? 'Connected to Teacher(s)' : 'Teacher Key Required for Tests'}
           </span>
         </div>
       </div>

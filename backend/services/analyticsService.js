@@ -24,7 +24,7 @@ export async function buildTeacherAnalytics(teacherId) {
   const quizzes = await Test.find({ createdBy: teacherId }).select('title subject subjects chapters questions createdAt').lean();
   const quizIds = quizzes.map((quiz) => quiz._id);
   const submissions = quizIds.length ? await Submission.find({ testId: { $in: quizIds } }).populate('studentId', 'name email').sort({ createdAt: 1 }).lean() : [];
-  const connectedStudents = await User.countDocuments({ role: 'student', connectedTeacher: teacherId });
+  const connectedStudents = await User.countDocuments({ role: 'student', $or: [{ connectedTeachers: teacherId }, { connectedTeacher: teacherId }] });
   const quizMap = new Map(quizzes.map((quiz) => [String(quiz._id), quiz]));
   const subjects = new Map();
   const chapters = new Map();

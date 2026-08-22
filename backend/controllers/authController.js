@@ -26,12 +26,16 @@ export const loginUser = async (req, res) => {
     const user = await User.findOne({ email: email?.trim().toLowerCase() });
     if (!user || !(await bcrypt.compare(password || '', user.password))) return res.status(401).json({ error: 'Invalid email or password.' });
     await ensureConnectionKey(user);
-    res.json({ _id: user.id, name: user.name, email: user.email, role: user.role, connectionKey: user.connectionKey, token: generateToken(user.id, user.role) });
+    await user.populate('connectedTeachers', 'name email');
+    const connectedTeachers = user.connectedTeachers || (user.connectedTeacher ? [user.connectedTeacher] : []);
+    res.json({ _id: user.id, name: user.name, email: user.email, role: user.role, connectionKey: user.connectionKey, connectedTeacher: user.connectedTeacher, connectedTeachers: connectedTeachers.map((teacher) => teacher._id || teacher), connectedTeacherDetails: connectedTeachers.map((teacher) => ({ id: teacher._id || teacher, name: teacher.name || 'Teacher', email: teacher.email || '' })), token: generateToken(user.id, user.role) });
   } catch (error) { res.status(500).json({ error: error.message }); }
 };
 
 export const getCurrentUser = async (req, res) => {
   const user = await ensureConnectionKey(req.user);
+  await user.populate('connectedTeachers', 'name email');
+  const connectedTeachers = user.connectedTeachers || (user.connectedTeacher ? [user.connectedTeacher] : []);
   const payload = {
     _id: user.id,
     name: user.name,
@@ -39,6 +43,8 @@ export const getCurrentUser = async (req, res) => {
     role: user.role,
     connectionKey: user.connectionKey,
     connectedTeacher: user.connectedTeacher,
+    connectedTeachers: connectedTeachers.map((teacher) => teacher._id || teacher),
+    connectedTeacherDetails: connectedTeachers.map((teacher) => ({ id: teacher._id || teacher, name: teacher.name || 'Teacher', email: teacher.email || '' })),
   };
   res.json({
     ...payload,

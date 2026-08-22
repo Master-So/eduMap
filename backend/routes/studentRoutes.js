@@ -5,6 +5,7 @@ import { requireAuth, requireStudent } from '../middleware/authMiddleware.js';
 const router = express.Router();
 router.post('/connect', requireAuth, requireStudent, connectStudentToTeacher);
 router.delete('/connection', requireAuth, requireStudent, disconnectStudentFromTeacher);
+router.delete('/connection/:teacherId', requireAuth, requireStudent, disconnectStudentFromTeacher);
 router.get('/quizzes', requireAuth, requireStudent, getPublishedQuizzes);
 router.get('/quizzes/:id', requireAuth, requireStudent, getPublishedQuiz);
 router.get('/quizzes/:id/result', requireAuth, requireStudent, getQuizSubmissionResult);

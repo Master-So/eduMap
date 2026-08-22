@@ -97,8 +97,9 @@ export const studentApi = {
     return request('/api/auth/me');
   },
 
-  disconnectFromTeacher: async () => {
-    return request('/api/students/connection', { method: 'DELETE' });
+  disconnectFromTeacher: async (teacherId) => {
+    const endpoint = teacherId ? `/api/students/connection/${encodeURIComponent(teacherId)}` : '/api/students/connection';
+    return request(endpoint, { method: 'DELETE' });
   },
 
   getPublishedQuizzes: async () => {

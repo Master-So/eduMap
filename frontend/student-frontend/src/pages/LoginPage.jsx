@@ -28,6 +28,8 @@ export default function LoginPage() {
           role: data.role,
           connectionKey: data.connectionKey,
           connectedTeacher: data.connectedTeacher,
+          connectedTeachers: data.connectedTeachers,
+          connectedTeacherDetails: data.connectedTeacherDetails,
         });
         navigate('/analytics');
       } else {

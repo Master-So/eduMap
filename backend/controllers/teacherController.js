@@ -18,14 +18,14 @@ export async function getConnectionKey(req, res) {
 }
 
 export async function getConnectedStudents(req, res) {
-  const students = await User.find({ role: 'student', connectedTeacher: req.user._id }).select('-password').sort({ createdAt: -1 });
+  const students = await User.find({ role: 'student', $or: [{ connectedTeachers: req.user._id }, { connectedTeacher: req.user._id }] }).select('-password').sort({ createdAt: -1 });
   res.json({ students });
 }
 
 export async function disconnectStudent(req, res) {
   const student = await User.findOneAndUpdate(
-    { _id: req.params.studentId, role: 'student', connectedTeacher: req.user._id },
-    { $unset: { connectedTeacher: 1 } },
+    { _id: req.params.studentId, role: 'student', $or: [{ connectedTeachers: req.user._id }, { connectedTeacher: req.user._id }] },
+    { $pull: { connectedTeachers: req.user._id }, $unset: { connectedTeacher: 1 } },
     { new: true }
   ).select('-password');
   if (!student) return res.status(404).json({ error: 'Connected student not found.' });
