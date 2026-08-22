@@ -1,5 +1,5 @@
 import React from 'react';
-import { BarChart3, LogIn, UserPlus, LogOut, X, GraduationCap, Home } from 'lucide-react';
+import { BarChart3, LogOut, X, Home, LogIn } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { getStudentUser, clearAuth } from '../../services/api';
 
@@ -13,12 +13,14 @@ export default function Sidebar({ open, onClose }) {
     navigate('/login');
   };
 
-  const navItems = [
-    { href: '/', label: 'Overview', icon: Home },
-    { href: '/analytics', label: 'Analytics & Quizzes', icon: BarChart3 },
-    { href: '/login', label: 'Student Login', icon: LogIn },
-    { href: '/register', label: 'Student Register', icon: UserPlus },
-  ];
+  // Nav items: login and register are strictly reserved for the landing page, not the logged-in sidebar
+  const navItems = student
+    ? [
+        { href: '/analytics', label: 'Analytics & Quizzes', icon: BarChart3 },
+      ]
+    : [
+        { href: '/', label: 'Overview', icon: Home },
+      ];
 
   return (
     <aside className={`sidebar ${open ? 'is-open' : ''}`}>
@@ -57,12 +59,12 @@ export default function Sidebar({ open, onClose }) {
         })}
       </nav>
 
-      {/* Footer */}
+      {/* Footer: Only Log Out option when logged in */}
       <div className="sidebar-footer">
         {student ? (
           <button className="nav-link signout" onClick={handleSignOut}>
             <LogOut size={18} />
-            <span>Sign Out ({student.name?.split(' ')[0]})</span>
+            <span>Log Out</span>
           </button>
         ) : (
           <Link to="/login" onClick={onClose} className="nav-link signout">
@@ -71,8 +73,7 @@ export default function Sidebar({ open, onClose }) {
           </Link>
         )}
         <span className="sidebar-note">
-          Student workspace<br />
-          Connected to port 5001
+          {student ? `Signed in as ${student.name?.split(' ')[0] || 'Student'}` : 'Student workspace'}
         </span>
       </div>
     </aside>

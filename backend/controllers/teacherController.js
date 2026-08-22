@@ -2,7 +2,7 @@ import User from '../models/user.js';
 import Test from '../models/Test.js';
 import Submission from '../models/Submission.js';
 import { ensureConnectionKey } from '../services/connectionKeyService.js';
-import { buildTeacherAnalytics, demoTeacherAnalytics } from '../services/analyticsService.js';
+import { buildTeacherAnalytics } from '../services/analyticsService.js';
 import { analyzeTeacherPerformance } from '../services/analyticsAiService.js';
 
 export async function getTeacherProfile(req, res) {
@@ -33,10 +33,9 @@ export async function getTeacherAnalytics(req, res) {
 }
 
 export async function analyzeTeacherAnalytics(req, res) {
-  const liveAnalytics = await buildTeacherAnalytics(req.user._id);
-  const analytics = liveAnalytics.source === 'empty' ? demoTeacherAnalytics() : liveAnalytics;
+  const analytics = await buildTeacherAnalytics(req.user._id);
   const aiAnalysis = await analyzeTeacherPerformance(analytics);
-  res.json({ analysis: { ...analytics, source: liveAnalytics.source === 'empty' ? 'demo' : 'live', aiReady: true, aiAnalysis, promptContext: { subjectWise: analytics.subjectWise, chapterWise: analytics.chapterWise, totals: analytics.totals } } });
+  res.json({ analysis: { ...analytics, source: 'live', aiReady: true, aiAnalysis, promptContext: { subjectWise: analytics.subjectWise, chapterWise: analytics.chapterWise, totals: analytics.totals } } });
 }
 
 export async function getTeacherReports(req, res) {

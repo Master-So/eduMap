@@ -10,6 +10,7 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import StudentAnalyticsPage from './pages/StudentAnalyticsPage';
 import QuizPage from './pages/QuizPage';
+import TestResultAnalyticsPage from './pages/TestResultAnalyticsPage';
 import NotFoundPage from './pages/NotFoundPage';
 
 export default function App() {
@@ -39,6 +40,24 @@ export default function App() {
           element={
             <DashboardLayout>
               <QuizPage />
+            </DashboardLayout>
+          }
+        />
+
+        {/* Dedicated Post-Submission Test Analytics */}
+        <Route
+          path="/test/:testId/analytics"
+          element={
+            <DashboardLayout>
+              <TestResultAnalyticsPage />
+            </DashboardLayout>
+          }
+        />
+        <Route
+          path="/test/:testId/results"
+          element={
+            <DashboardLayout>
+              <TestResultAnalyticsPage />
             </DashboardLayout>
           }
         />

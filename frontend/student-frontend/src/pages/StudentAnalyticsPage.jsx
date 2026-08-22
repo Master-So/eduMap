@@ -378,13 +378,38 @@ export default function StudentAnalyticsPage() {
                     </td>
                     <td>{quiz.questions?.length || 5} Questions</td>
                     <td>
-                      <Link
-                        to={`/test/${quiz._id || quiz.id}`}
-                        className="button primary small"
-                      >
-                        <Play size={12} />
-                        <span>Start Quiz</span>
-                      </Link>
+                      {quiz.isCompleted || quiz.alreadySubmitted ? (
+                        <Link
+                          to={`/test/${quiz._id || quiz.id}/analytics`}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.45rem',
+                            padding: '0.4rem 0.75rem',
+                            background: '#eef5f2',
+                            color: 'var(--teal)',
+                            fontWeight: 800,
+                            fontSize: '0.74rem',
+                            borderRadius: '4px',
+                            border: '1px solid #c4e4d8',
+                            transition: 'all 0.15s ease',
+                          }}
+                          title="Click to view detailed test breakdown and AI analytics"
+                        >
+                          <CheckCircle2 size={13} />
+                          <span>
+                            Completed ({quiz.submittedScore !== undefined ? `${quiz.submittedScore}/${quiz.submittedTotal || quiz.questions?.length || 5}` : 'Done'}) · View Analytics
+                          </span>
+                        </Link>
+                      ) : (
+                        <Link
+                          to={`/test/${quiz._id || quiz.id}`}
+                          className="button primary small"
+                        >
+                          <Play size={12} />
+                          <span>Start Quiz</span>
+                        </Link>
+                      )}
                     </td>
                   </tr>
                 ))}
