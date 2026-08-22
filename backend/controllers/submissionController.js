@@ -16,6 +16,17 @@ export const submitTest = async (req, res) => {
       return res.status(404).json({ error: "Test not found." });
     }
 
+    // 2.1 Enforce one test attempt per student
+    const existingSubmission = await Submission.findOne({ studentId, testId });
+    if (existingSubmission) {
+      return res.status(400).json({
+        error: "You have already completed this assessment. Each test can only be taken once.",
+        alreadySubmitted: true,
+        score: existingSubmission.score,
+        totalQuestions: existingSubmission.totalQuestions,
+      });
+    }
+
     // 3. Grade the submission
     let score = 0;
     

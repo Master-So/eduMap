@@ -101,6 +101,10 @@ export const studentApi = {
     return request(`/api/students/quizzes/${id}`);
   },
 
+  getQuizResult: async (id) => {
+    return request(`/api/students/quizzes/${id}/result`);
+  },
+
   submitQuiz: async (id, answers) => {
     return request(`/api/students/quizzes/${id}/submit`, {
       method: 'POST',

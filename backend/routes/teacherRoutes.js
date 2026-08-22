@@ -11,6 +11,7 @@ router.get('/quizzes', getTeacherQuizzes);
 router.post('/quizzes/generate', generateTest);
 router.post('/quizzes/:id/publish', publishQuiz);
 router.get('/analytics', getTeacherAnalytics);
+router.get('/analytics/analyze', analyzeTeacherAnalytics);
 router.post('/analytics/analyze', analyzeTeacherAnalytics);
 router.get('/reports', getTeacherReports);
 router.get('/reports/:id', getTeacherReport);

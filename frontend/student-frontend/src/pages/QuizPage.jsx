@@ -33,6 +33,9 @@ export default function QuizPage() {
   const [step, setStep] = useState(1);
   const [studentName, setStudentName] = useState(student?.name || '');
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [alreadyCompleted, setAlreadyCompleted] = useState(false);
+  const [pastSubmission, setPastSubmission] = useState(null);
   const [error, setError] = useState('');
   
   // Test Data
@@ -46,10 +49,35 @@ export default function QuizPage() {
   const [result, setResult] = useState(null);
 
   useEffect(() => {
+    async function loadQuizInfo() {
+      setInitialLoading(true);
+      try {
+        const res = await studentApi.getPublishedQuiz(testId);
+        const quiz = res?.quiz || res?.test;
+        if (quiz) {
+          setTestData(quiz);
+          if (quiz.isCompleted || quiz.alreadySubmitted) {
+            setAlreadyCompleted(true);
+            setPastSubmission({
+              score: quiz.submittedScore ?? 0,
+              total: quiz.submittedTotal || quiz.questions?.length || 5,
+              percentage: quiz.submittedPercentage ?? 0,
+              submittedAt: quiz.submittedAt,
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('Initial quiz fetch notice:', err?.message || err);
+      } finally {
+        setInitialLoading(false);
+      }
+    }
+    loadQuizInfo();
+
     return () => {
       disconnectSocket();
     };
-  }, []);
+  }, [testId]);
 
   useEffect(() => {
     let interval = null;
@@ -131,6 +159,10 @@ export default function QuizPage() {
 
   const handleStart = async (e) => {
     e.preventDefault();
+    if (alreadyCompleted) {
+      setError('You have already completed this assessment. Each test can only be taken once.');
+      return;
+    }
     if (!studentName.trim()) {
       setError('Please enter your full student name.');
       return;
@@ -139,16 +171,30 @@ export default function QuizPage() {
     setLoading(true);
 
     try {
-      let quiz = null;
-      try {
-        const res = await studentApi.getPublishedQuiz(testId);
-        quiz = res.quiz || res.test;
-      } catch (err) {
-        console.warn('API getPublishedQuiz fallback activated:', err.message);
+      let quiz = testData;
+      if (!quiz) {
+        try {
+          const res = await studentApi.getPublishedQuiz(testId);
+          quiz = res.quiz || res.test;
+        } catch (err) {
+          console.warn('API getPublishedQuiz fallback activated:', err.message);
+        }
       }
 
       if (!quiz || !quiz.questions?.length) {
         quiz = sampleMockQuiz(testId);
+      }
+
+      if (quiz.isCompleted || quiz.alreadySubmitted) {
+        setAlreadyCompleted(true);
+        setPastSubmission({
+          score: quiz.submittedScore ?? 0,
+          total: quiz.submittedTotal || quiz.questions?.length || 5,
+          percentage: quiz.submittedPercentage ?? 0,
+        });
+        setError('You have already completed this assessment. Each test can only be taken once.');
+        setLoading(false);
+        return;
       }
 
       setTestData(quiz);
@@ -257,27 +303,9 @@ export default function QuizPage() {
       review: reviewList,
     });
 
-    setResult({
-      score,
-      total,
-      percentage,
-      timeElapsed,
-      review: reviewList,
-    });
-
-    setStep(3);
-    setLoading(false);
-
-    try {
-      confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 },
-        colors: ['#0e8f86', '#159a90', '#20404a', '#84a56c'],
-      });
-    } catch (e) {}
+    // Navigate immediately to the rich post-test analytics page
+    navigate(`/test/${testId}/analytics`);
   };
-
 
   const currQ = testData?.questions?.[currentIdx];
   const progress = testData?.questions?.length
@@ -304,65 +332,92 @@ export default function QuizPage() {
         <div className="panel" style={{ maxWidth: '780px', margin: '0 auto', width: '100%' }}>
           <div className="panel-heading">
             <div>
-              <span className="eyebrow">Ready to begin</span>
-              <h2>Assessment Lobby</h2>
+              <span className="eyebrow">{alreadyCompleted ? 'Assessment Record' : 'Ready to begin'}</span>
+              <h2>{alreadyCompleted ? 'Test Already Completed' : 'Assessment Lobby'}</h2>
             </div>
             <span className="panel-index">Test ID: {testId}</span>
           </div>
 
-          {error && (
-            <div className="form-error" style={{ marginBottom: '1.2rem' }}>
-              <CircleAlert size={16} />
-              <span>{error}</span>
+          {alreadyCompleted ? (
+            <div style={{ textAlign: 'center', padding: '2rem 1rem' }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '3.2rem', height: '3.2rem', background: '#eef5f2', borderRadius: '50%', color: 'var(--teal)', marginBottom: '1.2rem' }}>
+                <CheckCircle2 size={26} />
+              </div>
+              <h3 style={{ fontSize: '1.25rem', marginBottom: '0.6rem', color: 'var(--ink)' }}>
+                You have already taken this assessment.
+              </h3>
+              <p style={{ color: 'var(--moss)', fontSize: '0.85rem', maxWidth: '440px', margin: '0 auto 1.6rem' }}>
+                Students are permitted to attempt each test only once. Your recorded score is{' '}
+                <strong style={{ color: 'var(--teal)' }}>
+                  {pastSubmission?.score} / {pastSubmission?.total} ({pastSubmission?.percentage}%)
+                </strong>.
+              </p>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '0.8rem' }}>
+                <Link to={`/test/${testId}/analytics`} className="button primary">
+                  <BarChart3 size={16} /> View Assessment Analytics & Breakdown
+                </Link>
+                <Link to="/analytics" className="button secondary">
+                  Return to Dashboard
+                </Link>
+              </div>
             </div>
-          )}
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1.8rem' }}>
-            <div style={{ background: '#fbfaf6', padding: '1rem', border: '1px solid var(--line)' }}>
-              <span className="eyebrow">Format</span>
-              <strong style={{ fontSize: '0.86rem', color: 'var(--ink)' }}>Single Choice MCQ</strong>
-            </div>
-            <div style={{ background: '#fbfaf6', padding: '1rem', border: '1px solid var(--line)' }}>
-              <span className="eyebrow">Sync</span>
-              <strong style={{ fontSize: '0.86rem', color: 'var(--teal)' }}>Live Socket (5001)</strong>
-            </div>
-            <div style={{ background: '#fbfaf6', padding: '1rem', border: '1px solid var(--line)' }}>
-              <span className="eyebrow">Grading</span>
-              <strong style={{ fontSize: '0.86rem', color: 'var(--ink)' }}>Instant Telemetry</strong>
-            </div>
-          </div>
-
-          <form onSubmit={handleStart} style={{ display: 'grid', gap: '1.2rem' }}>
-            <label style={{ display: 'grid', gap: '0.45rem', fontSize: '0.74rem', fontWeight: 800 }}>
-              Student Full Name
-              <input
-                type="text"
-                value={studentName}
-                onChange={(e) => setStudentName(e.target.value)}
-                placeholder="e.g. Alex Johnson"
-                required
-                className="key-input"
-                style={{ width: '100%' }}
-                disabled={loading}
-              />
-            </label>
-
-            <button
-              type="submit"
-              className="button primary wide"
-              disabled={loading || !studentName.trim()}
-              style={{ padding: '1rem' }}
-            >
-              {loading ? (
-                <span>Loading Assessment...</span>
-              ) : (
-                <>
-                  <span>Enter Live Assessment</span>
-                  <ArrowRight size={16} />
-                </>
+          ) : (
+            <>
+              {error && (
+                <div className="form-error" style={{ marginBottom: '1.2rem' }}>
+                  <CircleAlert size={16} />
+                  <span>{error}</span>
+                </div>
               )}
-            </button>
-          </form>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1.8rem' }}>
+                <div style={{ background: '#fbfaf6', padding: '1rem', border: '1px solid var(--line)' }}>
+                  <span className="eyebrow">Format</span>
+                  <strong style={{ fontSize: '0.86rem', color: 'var(--ink)' }}>Single Choice MCQ</strong>
+                </div>
+                <div style={{ background: '#fbfaf6', padding: '1rem', border: '1px solid var(--line)' }}>
+                  <span className="eyebrow">Attempts</span>
+                  <strong style={{ fontSize: '0.86rem', color: 'var(--destructive)' }}>1 Attempt Only</strong>
+                </div>
+                <div style={{ background: '#fbfaf6', padding: '1rem', border: '1px solid var(--line)' }}>
+                  <span className="eyebrow">Grading</span>
+                  <strong style={{ fontSize: '0.86rem', color: 'var(--ink)' }}>Instant Telemetry</strong>
+                </div>
+              </div>
+
+              <form onSubmit={handleStart} style={{ display: 'grid', gap: '1.2rem' }}>
+                <label style={{ display: 'grid', gap: '0.45rem', fontSize: '0.74rem', fontWeight: 800 }}>
+                  Student Full Name
+                  <input
+                    type="text"
+                    value={studentName}
+                    onChange={(e) => setStudentName(e.target.value)}
+                    placeholder="e.g. Alex Johnson"
+                    required
+                    className="key-input"
+                    style={{ width: '100%' }}
+                    disabled={loading}
+                  />
+                </label>
+
+                <button
+                  type="submit"
+                  className="button primary wide"
+                  disabled={loading || !studentName.trim()}
+                  style={{ padding: '1rem' }}
+                >
+                  {loading ? (
+                    <span>Loading Assessment...</span>
+                  ) : (
+                    <>
+                      <span>Enter Live Assessment</span>
+                      <ArrowRight size={16} />
+                    </>
+                  )}
+                </button>
+              </form>
+            </>
+          )}
         </div>
       )}
 
@@ -399,7 +454,6 @@ export default function QuizPage() {
           <h2 style={{ font: "400 1.6rem/1.25 'DM Serif Display', Georgia, serif", color: 'var(--ink)', margin: '0 0 1.8rem' }}>
             {currQ.questionText || currQ.question}
           </h2>
-
 
           {/* MCQ Options */}
           <div style={{ display: 'grid', gap: '0.8rem', marginBottom: '2rem' }}>
@@ -485,18 +539,6 @@ export default function QuizPage() {
               <Link to="/analytics" className="button primary">
                 <BarChart3 size={16} /> Return to Analytics Dashboard
               </Link>
-              <button
-                className="button secondary"
-                onClick={() => {
-                  setStep(1);
-                  setAnswers({});
-                  setCurrentIdx(0);
-                  setTimeElapsed(0);
-                  setResult(null);
-                }}
-              >
-                <RotateCcw size={16} /> Retake Quiz
-              </button>
             </div>
           </div>
 
