@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: edumap-backend
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: PORT
+        value: 5001
+      - key: NODE_ENV
+        value: production
+      - key: MONGO_URI
+        value: mongodb+srv://sohamharyani101_db_user:CdSeOGz52bX16Xtr@cluster0.d86ggw1.mongodb.net/eduMapDB?appName=Cluster0
+      - key: JWT_SECRET
+        value: edumap_jwt_super_secret_key_2026_production
+      - key: GEMINI_API_KEY
+        value: AIzaSyDaadfwDsZcGMAWCfmbwgaW85rym5Bpcbc
+      - key: GEMINI_MODEL
+        value: gemini-3.5-flash

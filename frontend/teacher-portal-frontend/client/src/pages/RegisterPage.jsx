@@ -55,7 +55,11 @@ export default function RegisterPage() {
       <div className="auth-panel">
         <div className="auth-aside">
           <div className="brand-lockup light">
-            <img className="brand-image" src="/manus-storage/teacher-portal-mark_2fa77f54.png" alt="" />
+            <div className="brand-mark">
+              <span />
+              <span />
+              <span />
+            </div>
             <span>Teacher <b>Portal</b></span>
           </div>
           <div>

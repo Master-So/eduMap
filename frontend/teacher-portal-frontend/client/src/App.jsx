@@ -1,4 +1,4 @@
-import { Route, Switch, Redirect } from "wouter";
+import { Route, Switch, Redirect, Router } from "wouter";
 import { AuthProvider } from "./context/AuthContext.jsx";
 import { ProtectedRoute } from "./components/layout/ProtectedRoute.jsx";
 import DashboardLayout from "./components/layout/DashboardLayout.jsx";
@@ -33,5 +33,14 @@ function AppRoutes() {
 }
 
 export default function App() {
-  return <AuthProvider><AppRoutes /></AuthProvider>;
+  const rawBase = import.meta.env.BASE_URL || "";
+  const basePath = rawBase && rawBase !== "/" ? rawBase.replace(/\/$/, "") : undefined;
+
+  const content = (
+    <AuthProvider>
+      <AppRoutes />
+    </AuthProvider>
+  );
+
+  return basePath ? <Router base={basePath}>{content}</Router> : content;
 }

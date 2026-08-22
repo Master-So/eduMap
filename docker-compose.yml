@@ -1,33 +1,77 @@
-version: '3.8'
-
 services:
-  # 1. The Database (MongoDB)
-  database:
-    image: mongo:latest
+  # --------------------------------------------------
+  # 1. Master NGINX Reverse Proxy (Gateway on Port 80)
+  # --------------------------------------------------
+  nginx-proxy:
+    image: nginx:alpine
+    container_name: edumap-gateway
+    restart: unless-stopped
     ports:
-      - "27017:27017"
+      - "80:80"
     volumes:
-      - mongo-data:/data/db
-
-  # 2. The Node.js Backend (Your teammate's code will go in a 'backend' folder)
-  backend:
-    build: ./backend
-    ports:
-      - "5000:5000"
-    environment:
-      - PORT=5000
-      - MONGO_URI=mongodb://database:27017/heatmap_db
-    depends_on:
-      - database
-
-  # 3. Your React Frontend
-  frontend:
-    build: ./student-app
-    ports:
-      - "8080:80"
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       - backend
+      - student-frontend
+      - teacher-frontend
+    networks:
+      - edumap-net
 
-# This keeps the database data from erasing when you turn off the containers
-volumes:
-  mongo-data:
+  # --------------------------------------------------
+  # 2. Node.js Express & Socket.io Backend
+  # --------------------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: edumap-backend
+    restart: unless-stopped
+    environment:
+      - PORT=5001
+      - NODE_ENV=production
+      - MONGO_URI=mongodb+srv://sohamharyani101_db_user:CdSeOGz52bX16Xtr@cluster0.d86ggw1.mongodb.net/eduMapDB?appName=Cluster0
+      - JWT_SECRET=edumap_jwt_super_secret_key_2026_production
+      - GEMINI_API_KEY=AIzaSyDaadfwDsZcGMAWCfmbwgaW85rym5Bpcbc
+      - GEMINI_MODEL=gemini-3.5-flash
+    expose:
+      - "5001"
+    networks:
+      - edumap-net
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5001/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  # --------------------------------------------------
+  # 3. Student Frontend (Vite / React)
+  # --------------------------------------------------
+  student-frontend:
+    build:
+      context: ./frontend/student-frontend
+      dockerfile: Dockerfile
+    container_name: edumap-student-ui
+    restart: unless-stopped
+    expose:
+      - "80"
+    networks:
+      - edumap-net
+
+  # --------------------------------------------------
+  # 4. Teacher Frontend (Vite / React)
+  # --------------------------------------------------
+  teacher-frontend:
+    build:
+      context: ./frontend/teacher-portal-frontend
+      dockerfile: Dockerfile
+    container_name: edumap-teacher-ui
+    restart: unless-stopped
+    expose:
+      - "80"
+    networks:
+      - edumap-net
+
+networks:
+  edumap-net:
+    driver: bridge

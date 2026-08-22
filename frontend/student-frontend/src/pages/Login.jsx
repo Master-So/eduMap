@@ -190,7 +190,7 @@ export default function Login() {
         {/* Quick Demo Credentials helper */}
         <div className="mt-4 text-center">
           <p className="text-xs text-slate-500">
-            Connecting to API Gateway: <span className="font-mono text-slate-400">localhost:5001</span>
+            Connected to <span className="font-mono text-slate-400">EduMap Cloud Gateway</span>
           </p>
         </div>
       </div>

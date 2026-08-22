@@ -1,6 +1,15 @@
 import express from 'express';
-import { connectStudentToTeacher, disconnectStudentFromTeacher, getPublishedQuizzes, getPublishedQuiz, submitStudentQuiz, getStudentSubmissions, getQuizSubmissionResult } from '../controllers/studentController.js';
-import { requireAuth, requireStudent } from '../middleware/authMiddleware.js';
+import {
+  connectStudentToTeacher,
+  disconnectStudentFromTeacher,
+  getPublishedQuizzes,
+  getPublishedQuiz,
+  submitStudentQuiz,
+  getStudentSubmissions,
+  getQuizSubmissionResult,
+  chatWithStudentAssistant,
+} from '../controllers/studentController.js';
+import { requireAuth, requireStudent, optionalAuth } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 router.post('/connect', requireAuth, requireStudent, connectStudentToTeacher);
@@ -11,5 +20,7 @@ router.get('/quizzes/:id', requireAuth, requireStudent, getPublishedQuiz);
 router.get('/quizzes/:id/result', requireAuth, requireStudent, getQuizSubmissionResult);
 router.post('/quizzes/:id/submit', requireAuth, requireStudent, submitStudentQuiz);
 router.get('/submissions', requireAuth, requireStudent, getStudentSubmissions);
+router.post('/chat', optionalAuth, chatWithStudentAssistant);
+
 export default router;
 

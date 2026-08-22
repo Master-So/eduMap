@@ -1,6 +1,7 @@
 import User from '../models/user.js';
 import Test from '../models/Test.js';
 import Submission from '../models/Submission.js';
+import { generateStudentChatResponse } from '../services/geminiService.js';
 
 function studentQuizView(quiz) {
   const value = quiz.toObject ? quiz.toObject() : { ...quiz };
@@ -317,4 +318,31 @@ export async function getQuizSubmissionResult(req, res) {
     res.status(500).json({ error: error.message || 'Failed to retrieve assessment result.' });
   }
 }
+
+export async function chatWithStudentAssistant(req, res) {
+  try {
+    const { message, history = [], topic = 'General', grade = '10th' } = req.body;
+    if (!message || !String(message).trim()) {
+      return res.status(400).json({ error: 'Message content is required.' });
+    }
+
+    const studentName = req.user?.name || 'Student';
+    const reply = await generateStudentChatResponse({
+      message: String(message).trim(),
+      history,
+      topic,
+      grade,
+      studentName,
+    });
+
+    res.json({
+      reply,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error('Error handling student chat assistant:', error);
+    res.status(500).json({ error: error.message || 'Failed to generate study assistant response.' });
+  }
+}
+
 
