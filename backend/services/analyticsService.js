@@ -1,5 +1,6 @@
 import Submission from '../models/Submission.js';
 import Test from '../models/Test.js';
+import User from '../models/user.js';
 import { SYLLABUS } from '../config/syllabus.js';
 
 const percent = (correct, total) => total ? Math.round((correct / total) * 100) : 0;
@@ -23,6 +24,7 @@ export async function buildTeacherAnalytics(teacherId) {
   const quizzes = await Test.find({ createdBy: teacherId }).select('title subject subjects chapters questions createdAt').lean();
   const quizIds = quizzes.map((quiz) => quiz._id);
   const submissions = quizIds.length ? await Submission.find({ testId: { $in: quizIds } }).populate('studentId', 'name email').sort({ createdAt: 1 }).lean() : [];
+  const connectedStudents = await User.countDocuments({ role: 'student', connectedTeacher: teacherId });
   const quizMap = new Map(quizzes.map((quiz) => [String(quiz._id), quiz]));
   const subjects = new Map();
   const chapters = new Map();
@@ -76,7 +78,7 @@ export async function buildTeacherAnalytics(teacherId) {
   return {
     generatedAt: new Date().toISOString(),
     source: submissions.length ? 'live' : 'empty',
-    totals: { quizzes: quizzes.length, submissions: submissions.length, students: students.size, correct: totalCorrect, answers: totalAnswers, percentage: percent(totalCorrect, totalAnswers) },
+    totals: { quizzes: quizzes.length, submissions: submissions.length, students: students.size, connectedStudents, correct: totalCorrect, answers: totalAnswers, percentage: percent(totalCorrect, totalAnswers) },
     trend,
     subjectWise,
     chapterWise,

@@ -31,6 +31,7 @@ export default function StudentAnalyticsPage() {
   const [connecting, setConnecting] = useState(false);
   const [connectError, setConnectError] = useState('');
   const [connectSuccess, setConnectSuccess] = useState('');
+  const [disconnecting, setDisconnecting] = useState(false);
 
   // Quizzes and Dynamic Analytics Data State
   const [quizzes, setQuizzes] = useState([]);
@@ -58,6 +59,8 @@ export default function StudentAnalyticsPage() {
         } finally {
           setQuizzesLoading(false);
         }
+      } else {
+        setQuizzes([]);
       }
 
       // 2. Load Real Dynamic Submissions from Server or Storage & Compute Metrics
@@ -101,6 +104,25 @@ export default function StudentAnalyticsPage() {
     loadData();
   }, [student?.connectedTeacher, student?._id]);
 
+  useEffect(() => {
+    let active = true;
+    const syncConnection = async () => {
+      if (!token) return;
+      try {
+        const response = await studentApi.getCurrentUser();
+        const remoteStudent = response?.student || response?.user || response;
+        if (active && remoteStudent) {
+          setStudentUser(remoteStudent);
+          setStudent(remoteStudent);
+        }
+      } catch (error) {
+        console.warn('Could not refresh connection status:', error.message);
+      }
+    };
+    syncConnection();
+    return () => { active = false; };
+  }, []);
+
   // Handle Teacher Connection Key Submission
   const handleConnectTeacher = async (e) => {
     e.preventDefault();
@@ -128,6 +150,24 @@ export default function StudentAnalyticsPage() {
       setConnectError(err.message || 'Teacher connection key was not found. Please verify the key with your teacher.');
     } finally {
       setConnecting(false);
+    }
+  };
+
+  const handleDisconnectTeacher = async () => {
+    setDisconnecting(true);
+    setConnectError('');
+    setConnectSuccess('');
+    try {
+      await studentApi.disconnectFromTeacher();
+      const updatedStudent = { ...student, connectedTeacher: null, teacherName: null };
+      setStudentUser(updatedStudent);
+      setStudent(updatedStudent);
+      setQuizzes([]);
+      setConnectSuccess('Disconnected from teacher successfully.');
+    } catch (err) {
+      setConnectError(err.message || 'Unable to disconnect from teacher.');
+    } finally {
+      setDisconnecting(false);
     }
   };
 
@@ -245,6 +285,9 @@ export default function StudentAnalyticsPage() {
               <span style={{ fontSize: '0.78rem', color: 'var(--moss)' }}>
                 Teacher access key is active.
               </span>
+              <button type="button" className="button ghost small" onClick={handleDisconnectTeacher} disabled={disconnecting}>
+                {disconnecting ? 'Disconnecting...' : 'Disconnect from teacher'}
+              </button>
             </div>
           )}
 

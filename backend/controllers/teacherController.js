@@ -22,6 +22,16 @@ export async function getConnectedStudents(req, res) {
   res.json({ students });
 }
 
+export async function disconnectStudent(req, res) {
+  const student = await User.findOneAndUpdate(
+    { _id: req.params.studentId, role: 'student', connectedTeacher: req.user._id },
+    { $unset: { connectedTeacher: 1 } },
+    { new: true }
+  ).select('-password');
+  if (!student) return res.status(404).json({ error: 'Connected student not found.' });
+  res.json({ message: 'Student disconnected successfully.', student });
+}
+
 export async function getTeacherQuizzes(req, res) {
   const quizzes = await Test.find({ createdBy: req.user._id }).sort({ createdAt: -1 });
   res.json({ quizzes });

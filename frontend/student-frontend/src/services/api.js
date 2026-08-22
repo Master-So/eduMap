@@ -93,6 +93,14 @@ export const studentApi = {
     });
   },
 
+  getCurrentUser: async () => {
+    return request('/api/auth/me');
+  },
+
+  disconnectFromTeacher: async () => {
+    return request('/api/students/connection', { method: 'DELETE' });
+  },
+
   getPublishedQuizzes: async () => {
     return request('/api/students/quizzes');
   },

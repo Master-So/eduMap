@@ -23,6 +23,16 @@ export async function connectStudentToTeacher(req, res) {
   res.json({ message: 'Student connected successfully.', student, teacher: { id: teacher.id, name: teacher.name } });
 }
 
+export async function disconnectStudentFromTeacher(req, res) {
+  const student = await User.findByIdAndUpdate(
+    req.user._id,
+    { $unset: { connectedTeacher: 1 } },
+    { new: true }
+  ).select('-password');
+  if (!student) return res.status(404).json({ error: 'Student not found.' });
+  res.json({ message: 'Disconnected from teacher successfully.', student });
+}
+
 export async function getPublishedQuizzes(req, res) {
   if (!req.user.connectedTeacher) return res.json({ quizzes: [] });
   const quizzes = await Test.find({ createdBy: req.user.connectedTeacher, published: true }).sort({ publishedAt: -1 });

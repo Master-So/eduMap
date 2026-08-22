@@ -321,6 +321,11 @@ export default function OverviewPage() {
               <small>{kpis.students ?? data.totals?.students ?? 0} connected students</small>
             </div>
             <div className="reference-kpi">
+              <span>Connected students</span>
+              <strong>{kpis.students ?? data.totals?.connectedStudents ?? data.totals?.students ?? 0}</strong>
+              <small>Current classroom connections</small>
+            </div>
+            <div className="reference-kpi">
               <span>Weakest subject</span>
               <strong className="kpi-text">{kpis.weakSubject || data.aiAnalysis?.weakestSubject?.name || '—'}</strong>
               <small>{data.aiAnalysis?.weakestSubject?.percentage !== undefined && data.aiAnalysis?.weakestSubject?.percentage !== null ? `${formatPercent(data.aiAnalysis.weakestSubject.percentage)} average` : 'No data yet'}</small>

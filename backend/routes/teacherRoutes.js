@@ -1,12 +1,13 @@
 import express from 'express';
 import { requireAuth, requireTeacher } from '../middleware/authMiddleware.js';
-import { getTeacherProfile, getConnectionKey, getConnectedStudents, getTeacherQuizzes, getTeacherAnalytics, analyzeTeacherAnalytics, getTeacherReports, getTeacherReport, publishQuiz } from '../controllers/teacherController.js';
+import { getTeacherProfile, getConnectionKey, getConnectedStudents, disconnectStudent, getTeacherQuizzes, getTeacherAnalytics, analyzeTeacherAnalytics, getTeacherReports, getTeacherReport, publishQuiz } from '../controllers/teacherController.js';
 import { generateTest } from '../controllers/testController.js';
 const router = express.Router();
 router.use(requireAuth, requireTeacher);
 router.get('/profile', getTeacherProfile);
 router.get('/connection-key', getConnectionKey);
 router.get('/students', getConnectedStudents);
+router.delete('/students/:studentId', disconnectStudent);
 router.get('/quizzes', getTeacherQuizzes);
 router.post('/quizzes/generate', generateTest);
 router.post('/quizzes/:id/publish', publishQuiz);

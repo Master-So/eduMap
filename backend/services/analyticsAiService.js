@@ -47,7 +47,7 @@ function fallbackAnalysis(analytics) {
         averageAccuracy: base,
         totalQuestions: total,
         submissions: analytics.totals?.submissions || 0,
-        students: analytics.totals?.students || 0,
+        students: analytics.totals?.connectedStudents ?? analytics.totals?.students ?? 0,
         weakSubject: weakestSubject?.name || '—',
         weakChapter: weakestChapter?.name || '—',
       },
